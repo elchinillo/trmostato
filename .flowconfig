@@ -1,0 +1,17 @@
+[ignore]
+<PROJECT_ROOT>/\.
+<PROJECT_ROOT>/backup/
+<PROJECT_ROOT>/node_modules/
+
+[include]
+<PROJECT_ROOT>/src/.*
+
+[libs]
+
+[lints]
+
+[options]
+all=true
+emoji=true
+
+[strict]

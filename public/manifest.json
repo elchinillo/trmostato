@@ -1,0 +1,35 @@
+{
+    "short_name": "Trmostato",
+    "name": "Trmostato",
+    "icons": [
+        {
+            "src": "/images/tr-icon-16.png",
+            "type": "image/png",
+            "sizes": "16x16"
+        },
+        {
+            "src": "/images/tr-icon-64.png",
+            "type": "image/png",
+            "sizes": "64x64"
+        },
+        {
+            "src": "/images/tr-icon-64.png",
+            "type": "image/png",
+            "sizes": "128x128"
+        },
+        {
+            "src": "/images/tr-icon-64.png",
+            "type": "image/png",
+            "sizes": "256x256"
+        },
+        {
+            "src": "/images/tr-icon-512.png",
+            "type": "image/png",
+            "sizes": "512x512"
+        }
+    ],
+    "start_url": "/",
+    "background_color": "#6fbfff",
+    "display": "standalone",
+    "theme_color": "#6fbfff"
+}

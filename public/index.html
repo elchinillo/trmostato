@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#6fbfff">
+
+    <title>Trmostato :: Home</title>
+
+    <script defer src="/__/firebase/5.4.2/firebase-app.js"></script>
+    <!-- <script defer src="/__/firebase/5.4.2/firebase-auth.js"></script> -->
+    <script defer src="/__/firebase/5.4.2/firebase-database.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/solid.css" integrity="sha384-VGP9aw4WtGH/uPAOseYxZ+Vz/vaTb1ehm1bwx92Fm8dTrE+3boLfF1SpAtB1z7HW" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/fontawesome.css" integrity="sha384-1rquJLNOM3ijoueaaeS5m+McXPJCGdr5HcA03/VHXxcp2kX2sUrQDmFc3jR5i/C7" crossorigin="anonymous" />
+</head>
+<body>
+    <div id="trmostato" />
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js');
+            });
+        }
+    </script>
+    <noscript>
+        <a href="http://outdatedbrowser.com">Browser not supported. Check compatible browsers.</a>
+    </noscript>
+</body>
+</html>
