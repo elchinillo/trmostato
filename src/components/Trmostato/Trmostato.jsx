@@ -34,7 +34,7 @@ function Trmostato({ override, temperature, threshold }: PropsType) {
             <div className={styles.stage}>
                 <figure className={styles.ball}>
                     <span className={styles.iris}>
-                        <FormattedNumber value={temperature} maximumFractionDigits={0}>
+                        <FormattedNumber value={Math.floor(temperature)}>
                             {formattedTemperature => (
                                 <div className={styles.temperature}>
                                     {formattedTemperature}

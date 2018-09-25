@@ -8,17 +8,27 @@
             "sizes": "16x16"
         },
         {
+            "src": "/images/tr-icon-32.png",
+            "type": "image/png",
+            "sizes": "32x32"
+        },
+        {
             "src": "/images/tr-icon-64.png",
             "type": "image/png",
             "sizes": "64x64"
         },
         {
-            "src": "/images/tr-icon-64.png",
+            "src": "/images/tr-icon-128.png",
             "type": "image/png",
             "sizes": "128x128"
         },
         {
-            "src": "/images/tr-icon-64.png",
+            "src": "/images/tr-icon-192.png",
+            "type": "image/png",
+            "sizes": "192x192"
+        },
+        {
+            "src": "/images/tr-icon-256.png",
             "type": "image/png",
             "sizes": "256x256"
         },
