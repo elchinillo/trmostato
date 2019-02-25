@@ -1,17 +1,32 @@
 -- Setup Constants
+local LOCAL_STATE_FILE = 'state.json'
 local FIREBASE_HOME = 'https://trmostato.firebaseio.com'
-local ME_URL = string.format('%s/me.json', FIREBASE_HOME)
-local OVERRIDE_URL = string.format('%s/me/state/override.json', FIREBASE_HOME)
-local TEMPERATURE_URL = string.format('%s/me/state/temperature.json', FIREBASE_HOME)
-local OVERRIDE_TIMEOUT = 30000
+local OVERRIDE_MAX_FAILURES = 10
+local TIMER_TIMEOUT = 5000
+local SLEEP_TIMEOUT = 60000000 -- 1 min
+
+local syncState
+local getState
 
 -- Init state
-local state = {
-    temperature = 0,
-    threshold = 0,
-    override = true,
-    firstFail = nil
-}
+local state
+
+if file.exists(LOCAL_STATE_FILE) and file.open(LOCAL_STATE_FILE, 'r') then
+    print('Backup state found')
+    state = sjson.decode(file.read('\n'))
+    file.close()
+else
+    state = {
+        override = true,
+        temperature = 0,
+        threshold = 0
+    }
+end
+
+print('Inital state: ' .. sjson.encode(state))
+
+state.failures = 0
+state.hasBeenOnline = false
 
 -- Setup relay
 local relay_pin = 2
@@ -20,22 +35,28 @@ gpio.mode(relay_pin, gpio.OUTPUT)
 gpio.write(relay_pin, gpio.LOW)
 
 -- Setup sensor
-local sensor_pin = 3
+ds18b20.setup(3)
 
-ds18b20.setup(sensor_pin)
-
--- Setup btn
-local rstBtn_pin = 4
-
-gpio.mode(rstBtn_pin, gpio.INT)
-
-gpio.trig(rstBtn_pin, 'up', function () node.dsleep(1000000) end)
-
--- Timers
+-- Create timers
 
 local relayTimer = tmr.create()
 local sensorTimer = tmr.create()
 local httpTimer = tmr.create()
+
+-- Setup btn
+gpio.mode(4, gpio.INT)
+
+local lastBtnPush = tmr.now()
+gpio.trig(4, 'down', function ()
+    local delta = tmr.now() - lastBtnPush
+    if delta < 0 then delta = delta + 2147483647 end -- proposed because of delta rolling over, https://github.com/hackhitchin/esp8266-co-uk/issues/2
+    if delta < 2000000 then return end
+
+    lastBtnPush = tmr.now()
+
+    state.override = state.override ~= true
+    print('Override: ' .. tostring(state.override))
+end)
 
 -- Callbacks
 
@@ -43,43 +64,53 @@ local function syncRelay()
     if state.override then
         print('Relay: off (override)')
         gpio.write(relay_pin, gpio.LOW)
-    elseif state.temperature < state.threshold then
+    elseif state.temperature < (state.threshold - 1) then
         print('Relay: on')
         gpio.write(relay_pin, gpio.HIGH)
-    else
+    elseif state.temperature > state.threshold then
         print('Relay: off')
         gpio.write(relay_pin, gpio.LOW)
+    else
+        print('Relay: noop (heating)')
     end
+    relayTimer:start()
 end
 
 local function onTemperatureReady(ind, rom, res, t, tdec, par)
     state.temperature = math.floor(t)
     print('Sensor: ' .. state.temperature)
+    sensorTimer:start()
 end
 
 local function senseTemperature()
     ds18b20.read(onTemperatureReady, {})
 end
 
-local function getState()
+getState = function()
+    httpTimer:register(TIMER_TIMEOUT, tmr.ALARM_SINGLE, syncState)
+
     http.get(
-        ME_URL,
+        string.format('%s/me.json', FIREBASE_HOME),
         nil,
         function (code, jsonResponse)
             if code >= 200 and code < 300 then
                 snapshot = sjson.decode(jsonResponse)
-                print('Threshold: ' .. snapshot.config.threshold)
-                state.threshold = snapshot.config.threshold
+                print('State: ' .. jsonResponse)
+
+                state.failures = 0
+                state.hasBeenOnline = true
                 state.override = snapshot.state.override
-                state.firstFail = nil
+                state.threshold = snapshot.config.threshold
             else
                 print('Error: (' .. code .. ') Failed to get state from cloud')
-                if not state.firstFail then
-                    state.firstFail = tmr.time()
-                end
 
-                if tmr.time() - state.firstFail > OVERRIDE_TIMEOUT then
-                    node.dsleep(1000000)
+                state.failures = state.failures + 1
+
+                if state.failures >= OVERRIDE_MAX_FAILURES then
+                    print('Too many failures to call home, sleep')
+                    wifi.sta.disconnect(function ()
+                        node.dsleep(SLEEP_TIMEOUT)
+                    end)
                 end
             end
 
@@ -88,53 +119,49 @@ local function getState()
     )
 end
 
-local function syncState()
-    httpTimer:stop()
+syncState = function ()
+    httpTimer:register(TIMER_TIMEOUT, tmr.ALARM_SINGLE, getState)
 
-    http.put(
-        TEMPERATURE_URL,
+    local stateJson
+    if state.hasBeenOnline then
+        stateJson = '{"override":' .. tostring(state.override) .. ',"temperature":' .. tostring(state.temperature) .. '}'
+    else
+        stateJson = '{"temperature":' .. tostring(state.temperature) .. '}'
+    end
+
+    print('Sync state: ' .. stateJson)
+
+    http.request(
+        string.format('%s/me/state.json', FIREBASE_HOME),
+        'PATCH',
         'Content-Type: application/json\r\n',
-        state.temperature,
+        stateJson,
         function (code)
             if code == 200 then
-                print('Sync: OK')
-                getState()
+                print('Sync state: OK')
             else
-                httpTimer:start()
-                print('Sync: Failed to store temperature on cloud, ' .. code)
+                print('Sync state: Failed to store state on cloud, ' .. code)
             end
+
+            httpTimer:start()
         end
     )
 end
 
 -- Set up timers
 
-relayTimer:register(5000, tmr.ALARM_AUTO, syncRelay)
+relayTimer:register(TIMER_TIMEOUT, tmr.ALARM_SEMI, syncRelay)
 
-sensorTimer:register(5000, tmr.ALARM_AUTO, senseTemperature)
+sensorTimer:register(TIMER_TIMEOUT, tmr.ALARM_SEMI, senseTemperature)
 
-httpTimer:register(5000, tmr.ALARM_AUTO, syncState)
+httpTimer:register(TIMER_TIMEOUT, tmr.ALARM_SINGLE, getState)
 
 -- Main
 
-print('Override relay state')
-http.put(
-    OVERRIDE_URL,
-    'Content-Type: application/json\r\n',
-    "true",
-    function (code)
-        if code == 200 then
-            print('Done')
-            senseTemperature()
-            print('Start sensor timer')
-            sensorTimer:start()
-            print('Start relay timer')
-            relayTimer:start()
-            print('Start http timer')
-            httpTimer:start()
-        else
-            print('Failed to override relay, sleep')
-            node.dsleep(1000000)
-        end
-    end
-)
+senseTemperature()
+print('Start sensor timer')
+sensorTimer:start()
+print('Start relay timer')
+relayTimer:start()
+print('Start http timer')
+httpTimer:start()
