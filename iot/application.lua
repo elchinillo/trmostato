@@ -1,23 +1,21 @@
 -- Setup Constants
 local LOCAL_STATE_FILE = 'state.json'
 local FIREBASE_HOME = 'https://trmostato.firebaseio.com'
-local OVERRIDE_MAX_FAILURES = 10
 local TIMER_TIMEOUT = 5000
-local SLEEP_TIMEOUT = 60000000 -- 1 min
 
-local syncState
 local getState
+local syncState
 
 -- Init state
 local state
 
 if file.exists(LOCAL_STATE_FILE) and file.open(LOCAL_STATE_FILE, 'r') then
-    print('Backup state found')
+    print('Load prev state')
     state = sjson.decode(file.read('\n'))
     file.close()
 else
     state = {
-        override = true,
+        keepPowerOff = true,
         temperature = 0,
         threshold = 0
     }
@@ -25,8 +23,8 @@ end
 
 print('Inital state: ' .. sjson.encode(state))
 
+state.inSync = nil
 state.failures = 0
-state.hasBeenOnline = false
 
 -- Setup relay
 local relay_pin = 2
@@ -54,15 +52,16 @@ gpio.trig(4, 'down', function ()
 
     lastBtnPush = tmr.now()
 
-    state.override = state.override ~= true
-    print('Override: ' .. tostring(state.override))
+    state.keepPowerOff = state.keepPowerOff ~= true
+    state.inSync = false
+    print('KeepPowerOff: ' .. tostring(state.keepPowerOff))
 end)
 
 -- Callbacks
 
 local function syncRelay()
-    if state.override then
-        print('Relay: off (override)')
+    if state.keepPowerOff then
+        print('Relay: off (keepPowerOff)')
         gpio.write(relay_pin, gpio.LOW)
     elseif state.temperature < (state.threshold - 1) then
         print('Relay: on')
@@ -76,14 +75,15 @@ local function syncRelay()
     relayTimer:start()
 end
 
-local function onTemperatureReady(ind, rom, res, t, tdec, par)
-    state.temperature = math.floor(t)
-    print('Sensor: ' .. state.temperature)
-    sensorTimer:start()
-end
-
 local function senseTemperature()
-    ds18b20.read(onTemperatureReady, {})
+    ds18b20.read(
+        function (ind, rom, res, t)
+            state.temperature = math.floor(t)
+            print('Sensor: ' .. state.temperature)
+            sensorTimer:start()
+        end,
+        {}
+    )
 end
 
 getState = function()
@@ -98,18 +98,23 @@ getState = function()
                 print('State: ' .. jsonResponse)
 
                 state.failures = 0
-                state.hasBeenOnline = true
-                state.override = snapshot.state.override
                 state.threshold = snapshot.config.threshold
+
+                if state.inSync == nil or state.inSync then
+                    state.keepPowerOff = snapshot.state.keepPowerOff
+                end
+
+                state.inSync = true
+                state.hasBeenOnline = true
             else
-                print('Error: (' .. code .. ') Failed to get state from cloud')
+                print('Error(' .. code .. '): Failed to get state from cloud')
 
                 state.failures = state.failures + 1
 
-                if state.failures >= OVERRIDE_MAX_FAILURES then
+                if state.failures >= 10 then -- OVERRIDE_MAX_FAILURES
                     print('Too many failures to call home, sleep')
                     wifi.sta.disconnect(function ()
-                        node.dsleep(SLEEP_TIMEOUT)
+                        node.dsleep(60000000) -- 1 min
                     end)
                 end
             end
@@ -122,25 +127,26 @@ end
 syncState = function ()
     httpTimer:register(TIMER_TIMEOUT, tmr.ALARM_SINGLE, getState)
 
-    local stateJson
-    if state.hasBeenOnline then
-        stateJson = '{"override":' .. tostring(state.override) .. ',"temperature":' .. tostring(state.temperature) .. '}'
-    else
-        stateJson = '{"temperature":' .. tostring(state.temperature) .. '}'
+    local stateJson = {
+        ['temperature'] = state.temperature
+    }
+
+    if state.inSync ~= nil then
+        stateJson['keepPowerOff'] = state.keepPowerOff
     end
 
-    print('Sync state: ' .. stateJson)
+    print('Sync state')
 
     http.request(
         string.format('%s/me/state.json', FIREBASE_HOME),
         'PATCH',
         'Content-Type: application/json\r\n',
-        stateJson,
+        sjson.encode(stateJson),
         function (code)
             if code == 200 then
                 print('Sync state: OK')
             else
-                print('Sync state: Failed to store state on cloud, ' .. code)
+                print('Error(' .. code .. '): Failed to store state on cloud')
             end
 
             httpTimer:start()
