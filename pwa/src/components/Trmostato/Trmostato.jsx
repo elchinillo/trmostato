@@ -34,7 +34,7 @@ function Trmostato({ intl, keepPowerOff, temperature, threshold }: PropsType) {
     const trmostatoStateIconClassName = {
         [`fa-angle-down ${styles.heatingOff}`]: HEATING_OFF === trmostatoState,
         [`fa-angle-up ${styles.heatingOn}`]: HEATING_ON === trmostatoState,
-        [styles.override]: OVERRIDE === trmostatoState
+        [`fa-angle-down ${styles.override}`]: OVERRIDE === trmostatoState
     };
 
     return (

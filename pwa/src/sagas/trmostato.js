@@ -34,7 +34,7 @@ type ThresholdChangeEvent = {
 type FirebaseEvent = KeepPowerOffChangeEvent | TemperatureChangeEvent | ThresholdChangeEvent;
 
 function subscribeToFirebase(emitter) {
-    firebase.database().ref('me/state/override').on('value', snapshot => emitter({
+    firebase.database().ref('me/state/keepPowerOff').on('value', snapshot => emitter({
         type: KEEP_POWER_OFF_CHANGE_EVENT,
         payload: snapshot.val()
     }));
