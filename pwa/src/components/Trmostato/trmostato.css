@@ -12,8 +12,6 @@
 
 .temperature {
     color: #d7eaea;
-    font-size: 80vh;
-    line-height: 80vh;
 }
 
 .temperature i {
@@ -51,4 +49,20 @@
     color: #acdbdf;
     text-align: center;
     font-size: 1.5rem;
+}
+
+/* Landscape */
+@media (orientation: landscape) {
+    .temperature {
+        font-size: 80vh;
+        line-height: 80vh;
+    }
+}
+
+/* Portrait */
+@media (orientation: portrait) {
+    .temperature {
+        font-size: 70vw;
+        line-height: 70vw;
+    }
 }
