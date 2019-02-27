@@ -4,7 +4,7 @@ import { call, put, takeEvery } from 'redux-saga/effects';
 import firebase from 'firebase';
 
 import { setError } from 'trmostato/actions/app';
-import { setOverride, setTemperature, setThreshold } from 'trmostato/actions/trmostato';
+import { keepPowerOff, doNotKeepPowerOff, setTemperature, setThreshold } from 'trmostato/actions/trmostato';
 
 const i18nMessages = defineMessages({
     failedToInit: {
@@ -13,42 +13,39 @@ const i18nMessages = defineMessages({
     }
 });
 
-type OverrideTag = 'OVERRIDE';
-const OVERRIDE: OverrideTag = 'OVERRIDE';
-type OverrideEvent = {
-    type: OverrideTag,
+const KEEP_POWER_OFF_CHANGE_EVENT: 'KEEP_POWER_OFF_CHANGE_EVENT' = 'KEEP_POWER_OFF_CHANGE_EVENT';
+type KeepPowerOffChangeEvent = {
+    type: typeof KEEP_POWER_OFF_CHANGE_EVENT,
+    payload: boolean
+};
+
+const TEMPERATURE_CHANGE_EVENT: 'TEMPERATURE_CHANGE_EVENT' = 'TEMPERATURE_CHANGE_EVENT';
+type TemperatureChangeEvent = {
+    type: typeof TEMPERATURE_CHANGE_EVENT,
     payload: number
 };
 
-type TemperatureTag = 'TEMPERATURE';
-const TEMPERATURE: TemperatureTag = 'TEMPERATURE';
-type TemperatureEvent = {
-    type: TemperatureTag,
+const THRESHOLD_CHANGE_EVENT: 'THRESHOLD' = 'THRESHOLD';
+type ThresholdChangeEvent = {
+    type: typeof THRESHOLD_CHANGE_EVENT,
     payload: number
 };
 
-type ThresholdTag = 'THRESHOLD';
-const THRESHOLD: ThresholdTag = 'THRESHOLD';
-type ThresholdEvent = {
-    type: ThresholdTag,
-    payload: number
-};
-
-type FirebaseEvent = OverrideEvent | TemperatureEvent | ThresholdEvent;
+type FirebaseEvent = KeepPowerOffChangeEvent | TemperatureChangeEvent | ThresholdChangeEvent;
 
 function subscribeToFirebase(emitter) {
     firebase.database().ref('me/state/override').on('value', snapshot => emitter({
-        type: 'OVERRIDE',
+        type: KEEP_POWER_OFF_CHANGE_EVENT,
         payload: snapshot.val()
     }));
 
     firebase.database().ref('me/state/temperature').on('value', snapshot => emitter({
-        type: 'TEMPERATURE',
+        type: TEMPERATURE_CHANGE_EVENT,
         payload: snapshot.val()
     }));
 
     firebase.database().ref('me/config/threshold').on('value', snapshot => emitter({
-        type: 'THRESHOLD',
+        type: THRESHOLD_CHANGE_EVENT,
         payload: snapshot.val()
     }));
 
@@ -59,15 +56,19 @@ function subscribeToFirebase(emitter) {
 
 function* mapFirebaseEventToReduxAction(firebaseEvent: FirebaseEvent) {
     switch (firebaseEvent.type) {
-        case OVERRIDE:
-            yield put(setOverride(firebaseEvent.payload));
+        case KEEP_POWER_OFF_CHANGE_EVENT:
+            if (firebaseEvent.payload) {
+                yield put(keepPowerOff());
+            } else {
+                yield put(doNotKeepPowerOff());
+            }
             break;
 
-        case TEMPERATURE:
+        case TEMPERATURE_CHANGE_EVENT:
             yield put(setTemperature(firebaseEvent.payload));
             break;
 
-        case THRESHOLD:
+        case THRESHOLD_CHANGE_EVENT:
             yield put(setThreshold(firebaseEvent.payload));
             break;
 

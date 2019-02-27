@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { IntlProvider } from 'react-intl';
 
-import styles from './appShell.css';
+import './appShell.css';
 
 type PropsType = {
     children: React.Node,
@@ -30,10 +30,7 @@ class App extends React.PureComponent<PropsType> {
         return (
             <IntlProvider locale={locale}>
                 <React.Fragment>
-                    <div className={styles.mbg} />
-                    <div className={styles.content}>
-                        {children}
-                    </div>
+                    {children}
                 </React.Fragment>
             </IntlProvider>
         );

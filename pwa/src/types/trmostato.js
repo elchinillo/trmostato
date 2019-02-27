@@ -1,30 +1,27 @@
 export type TrmostatoType = {
-    override: boolean,
+    keepPowerOff: boolean,
     temperature: number,
     threshold: number
 };
 
 // Actions
-type SetOverrideTag = 'SET_OVERRIDE';
-export const SET_OVERRIDE: SetOverrideTag = 'SET_OVERRIDE';
+export const SET_KEEP_POWER_OFF: 'SET_KEEP_POWER_OFF' = 'SET_KEEP_POWER_OFF';
 
-export type SetOverrideAction = {
-    type: SetOverrideTag,
-    payload: number
+export type SetKeepPowerOffAction = {
+    type: typeof SET_KEEP_POWER_OFF,
+    payload: boolean
 };
 
-type SetTemperatureTag = 'SET_TEMPERATURE';
-export const SET_TEMPERATURE: SetTemperatureTag = 'SET_TEMPERATURE';
+export const SET_TEMPERATURE: 'SET_TEMPERATURE' = 'SET_TEMPERATURE';
 
 export type SetTemperatureAction = {
-    type: SetTemperatureTag,
+    type: typeof SET_TEMPERATURE,
     payload: number
 };
 
-type SetThresholdTag = 'SET_THRESHOLD';
-export const SET_THRESHOLD: SetThresholdTag = 'SET_THRESHOLD';
+export const SET_THRESHOLD: 'SET_THRESHOLD' = 'SET_THRESHOLD';
 
 export type SetThresholdAction = {
-    type: SetThresholdTag,
+    type: typeof SET_THRESHOLD,
     payload: number
 };

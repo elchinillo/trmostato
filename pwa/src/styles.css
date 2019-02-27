@@ -1,0 +1,43 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #69779b;
+  }
+  
+  body {
+    font-family: sans-serif;
+  }
+  
+  #app {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+  }
+  
+  #app #temperature {
+    font-size: 70vh;
+    flex-shrink: 0;
+    text-align: center;
+    color: #d7eaea;
+  }
+  
+  #app #state {
+    position: absolute;
+    top: 150px;
+    right: 30px;
+    font-size: 10vh;
+  }
+  
+  #app #state.fa-fire {
+    color: #db2d43;
+  }
+  
+  #app #state.fa-snowflake {
+    color: #1eafed;
+  }
+  
+  #app #info {
+    color: #acdbdf;
+  }

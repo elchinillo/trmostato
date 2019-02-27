@@ -1,65 +1,61 @@
 import classnames from 'classnames';
 import * as React from 'react';
-import { FormattedMessage, FormattedNumber } from 'react-intl';
+import { defineMessages, injectIntl, type IntlShape } from 'react-intl';
 
 import styles from './trmostato.css';
+
+const i18nMessages = defineMessages({
+    threshold: {
+        defaultMessage: 'Threshold: {threshold}',
+        id: 'trmostato.threshold'
+    }
+});
 
 const OVERRIDE = 'override';
 const HEATING_ON = 'on';
 const HEATING_OFF = 'off';
 
 type PropsType = {
-    override: boolean,
+    intl: IntlShape,
+    keepPowerOff: boolean,
     temperature: number,
     threshold: number
 };
 
-function Trmostato({ override, temperature, threshold }: PropsType) {
-    const trmostatoState = override ? OVERRIDE : temperature < threshold ? HEATING_ON : HEATING_OFF;
+function Trmostato({ intl, keepPowerOff, temperature, threshold }: PropsType) {
+    const trmostatoState = keepPowerOff ? OVERRIDE : temperature < threshold ? HEATING_ON : HEATING_OFF;
 
-    const trmostatoStateClassNames = {
-        [styles.heatingOff]: HEATING_OFF === trmostatoState,
-        [styles.heatingOn]: HEATING_ON === trmostatoState,
-        [styles.override]: OVERRIDE === trmostatoState
+    const trmostatoFeelsIconClassName = {
+        [`fa-snowflake ${styles.heatingOff}`]: HEATING_OFF === trmostatoState,
+        [`fa-fire ${styles.heatingOn}`]: HEATING_ON === trmostatoState,
+        [`fa-ban ${styles.override}`]: OVERRIDE === trmostatoState
     };
 
-    const trmostatoStateIconClassNames = {
-        'fa-snowflake': HEATING_OFF === trmostatoState,
-        'fa-fire': HEATING_ON === trmostatoState,
-        'fa-ban': OVERRIDE === trmostatoState
+    const trmostatoStateIconClassName = {
+        [`fa-angle-down ${styles.heatingOff}`]: HEATING_OFF === trmostatoState,
+        [`fa-angle-up ${styles.heatingOn}`]: HEATING_ON === trmostatoState,
+        [styles.override]: OVERRIDE === trmostatoState
     };
 
     return (
         <section className={styles.trmostato}>
-            <div className={styles.stage}>
-                <figure className={styles.ball}>
-                    <span className={styles.iris}>
-                        <FormattedNumber value={Math.floor(temperature)}>
-                            {formattedTemperature => (
-                                <div className={styles.temperature}>
-                                    {formattedTemperature}
-                                </div>
-                            )}
-                        </FormattedNumber>
-                        <FormattedMessage defaultMessage="State:" id="trmostato.state" values={{ state: trmostatoState }}>
-                            {formattedState => (
-                                <div className={classnames(styles.state, trmostatoStateClassNames)}>
-                                    {formattedState} <i className={classnames('fas', trmostatoStateIconClassNames)} />
-                                </div>
-                            )}
-                        </FormattedMessage>
-                        <FormattedMessage defaultMessage="Threshold: {threshold}" id="trmostato.threshold" values={{ threshold }}>
-                            {formattedState => (
-                                <div className={styles.threshold}>
-                                    {formattedState}
-                                </div>
-                            )}
-                        </FormattedMessage>
-                    </span>
-                </figure>
+            <div className={styles.state}>
+                <div className={styles.temperature}>
+                    {intl.formatNumber(temperature)} 
+                </div>
+                <div className={classnames(styles.status)}>
+                    <i className={classnames('fas', trmostatoFeelsIconClassName, styles.temperatureIcon)} />
+                    <i className={classnames('fas', trmostatoStateIconClassName)} />
+                    <i className={classnames('fas', trmostatoStateIconClassName)} />
+                    <i className={classnames('fas', trmostatoStateIconClassName)} />
+                    <i className={classnames('fas', trmostatoFeelsIconClassName, styles.temperatureIcon)} />
+                </div>
+            </div>
+            <div className={styles.config}>
+                {intl.formatMessage(i18nMessages.threshold, { threshold })}
             </div>
         </section>
     )
 }
 
-export default Trmostato;
+export default injectIntl(Trmostato);
