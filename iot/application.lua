@@ -1,7 +1,8 @@
 -- Setup Constants
 local LOCAL_STATE_FILE = 'state.json'
 local FIREBASE_HOME = 'https://trmostato.firebaseio.com'
-local TIMER_TIMEOUT = 5000
+local LONG_TIMEOUT = 60000
+local SHORT_TIMEOUT = 1000
 
 local getState
 local syncState
@@ -15,7 +16,6 @@ if file.exists(LOCAL_STATE_FILE) and file.open(LOCAL_STATE_FILE, 'r') then
     file.close()
 else
     state = {
-        keepPowerOff = true,
         temperature = 0,
         threshold = 0
     }
@@ -23,6 +23,7 @@ end
 
 print('Inital state: ' .. sjson.encode(state))
 
+state.keepPowerOff = true
 state.inSync = nil
 state.failures = 0
 
@@ -37,7 +38,6 @@ ds18b20.setup(3)
 
 -- Create timers
 
-local relayTimer = tmr.create()
 local sensorTimer = tmr.create()
 local httpTimer = tmr.create()
 
@@ -59,36 +59,39 @@ end)
 
 -- Callbacks
 
-local function syncRelay()
-    if state.keepPowerOff then
-        print('Relay: off (keepPowerOff)')
-        gpio.write(relay_pin, gpio.LOW)
-    elseif state.temperature < (state.threshold - 1) then
-        print('Relay: on')
-        gpio.write(relay_pin, gpio.HIGH)
-    elseif state.temperature > state.threshold then
-        print('Relay: off')
-        gpio.write(relay_pin, gpio.LOW)
-    else
-        print('Relay: noop (heating)')
-    end
-    relayTimer:start()
-end
-
 local function senseTemperature()
+    httpTimer:register(SHORT_TIMEOUT, tmr.ALARM_SINGLE, syncState)
+
     ds18b20.read(
-        function (ind, rom, res, t)
-            state.temperature = math.floor(t)
-            print('Sensor: ' .. state.temperature)
-            sensorTimer:start()
+        function (ind, rom, res, t, t_dec)
+            -- Round temperature
+            if t_dec > 500 then
+                state.temperature = t + 1
+            else
+                state.temperature = t
+            end
+            print('Temperature: ' .. t .. '.' .. t_dec)
+
+            -- Update relay state
+            if state.keepPowerOff then
+                print('Relay: off (keepPowerOff)')
+                gpio.write(relay_pin, gpio.LOW)
+            elseif state.temperature < state.threshold then
+                print('Relay: on')
+                gpio.write(relay_pin, gpio.HIGH)
+            elseif state.temperature > state.threshold  then
+                print('Relay: off')
+                gpio.write(relay_pin, gpio.LOW)
+            else
+                print('Relay: noop')
+            end
+            httpTimer:start()
         end,
         {}
     )
 end
 
 getState = function()
-    httpTimer:register(TIMER_TIMEOUT, tmr.ALARM_SINGLE, syncState)
-
     http.get(
         string.format('%s/me.json', FIREBASE_HOME),
         nil,
@@ -106,26 +109,40 @@ getState = function()
 
                 state.inSync = true
                 state.hasBeenOnline = true
+
+                sensorTimer:register(LONG_TIMEOUT, tmr.ALARM_SEMI, senseTemperature)
             else
                 print('Error(' .. code .. '): Failed to get state from cloud')
 
                 state.failures = state.failures + 1
 
                 if state.failures >= 10 then -- OVERRIDE_MAX_FAILURES
-                    print('Too many failures to call home, sleep')
+                    print('Too many failures to call home, save state and sleep')
+
+                    if file.open(LOCAL_STATE_FILE, 'w') then
+                        -- save current state
+                        file.write(sjson.encode({
+                            threshold = state.threshold,
+                            temperature = state.temperature
+                        }))
+                        file.close()
+                    end
+
                     wifi.sta.disconnect(function ()
                         node.dsleep(60000000) -- 1 min
                     end)
                 end
+
+                sensorTimer:register(SHORT_TIMEOUT, tmr.ALARM_SEMI, senseTemperature)
             end
 
-            httpTimer:start()
+            sensorTimer:start()
         end
     )
 end
 
 syncState = function ()
-    httpTimer:register(TIMER_TIMEOUT, tmr.ALARM_SINGLE, getState)
+    httpTimer:register(SHORT_TIMEOUT, tmr.ALARM_SINGLE, getState)
 
     local stateJson = {
         ['temperature'] = state.temperature
@@ -135,8 +152,6 @@ syncState = function ()
         stateJson['keepPowerOff'] = state.keepPowerOff
     end
 
-    print('Sync state')
-
     http.request(
         string.format('%s/me/state.json', FIREBASE_HOME),
         'PATCH',
@@ -144,7 +159,7 @@ syncState = function ()
         sjson.encode(stateJson),
         function (code)
             if code == 200 then
-                print('Sync state: OK')
+                print('State: In sync')
             else
                 print('Error(' .. code .. '): Failed to store state on cloud')
             end
@@ -154,20 +169,7 @@ syncState = function ()
     )
 end
 
--- Set up timers
-
-relayTimer:register(TIMER_TIMEOUT, tmr.ALARM_SEMI, syncRelay)
-
-sensorTimer:register(TIMER_TIMEOUT, tmr.ALARM_SEMI, senseTemperature)
-
-httpTimer:register(TIMER_TIMEOUT, tmr.ALARM_SINGLE, getState)
-
 -- Main
 
+print('Read initial temperature')
 senseTemperature()
-print('Start sensor timer')
-sensorTimer:start()
-print('Start relay timer')
-relayTimer:start()
-print('Start http timer')
-httpTimer:start()
