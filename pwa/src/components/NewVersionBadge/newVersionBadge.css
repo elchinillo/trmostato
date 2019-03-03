@@ -1,5 +1,4 @@
 .container {
-    background-color: #d7eaea;
     display: flex;
     flex-direction: column-reverse;
     height: 6rem;
@@ -11,7 +10,7 @@
 }
 
 .button {
-    background-color: transparent;
+    background-color: #d7eaea;
     border: 0;
     color: #464d5d;
     flex-basis: 100%;
