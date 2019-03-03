@@ -1,20 +1,23 @@
 .container {
+    display: none;
+}
+
+.container.visible {
+    background-color: #d7eaea;
+    color: #464d5d;
     display: flex;
-    flex-direction: column-reverse;
-    height: 6rem;
-    width: 12rem;
-    position: absolute;
-    right: -4rem;
-    top: -1rem;
-    transform: rotate(45deg);
+    height: 2rem;
+    line-height: 2rem;
+    width: 100%;
+    position: fixed;
+    z-index:100;
 }
 
 .button {
-    background-color: #d7eaea;
     border: 0;
-    color: #464d5d;
     flex-basis: 100%;
     font-weight: 900;
+    font-size: 1rem;
     font-style: italic;
     margin: 0;
     padding: 0;

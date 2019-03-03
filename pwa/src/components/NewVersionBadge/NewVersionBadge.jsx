@@ -1,3 +1,4 @@
+import classnames from 'classnames';
 import React from 'react';
 import { defineMessages, injectIntl, type IntlShape } from 'react-intl';
 
@@ -5,7 +6,7 @@ import styles from './newVersionBadge.css';
 
 const i18nMessages = defineMessages({
     newVersion: {
-        defaultMessage: 'New version',
+        defaultMessage: 'New version available',
         id: 'version.newVersion'
     }
 })
@@ -39,8 +40,8 @@ class NewVersionBadge extends React.PureComponent<PropsType, StateType> {
         const { show } = this.state;
 
         return (
-            <section className={styles.container}>
-                {show && (
+            <section className={classnames(styles.container, { [styles.visible]: show })}>
+                {(
                     <button className={styles.button} onClick={this.reloadPage}>
                         {intl.formatMessage(i18nMessages.newVersion)}
                     </button>
