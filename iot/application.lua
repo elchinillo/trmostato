@@ -4,6 +4,13 @@ local FIREBASE_HOME = 'https://trmostato.firebaseio.com'
 local LONG_TIMEOUT = 60000 -- 60 secs
 local SHORT_TIMEOUT = 1000 -- 1 sec
 
+local RELAY_PIN = 2
+local SENSOR_PIN = 3
+local BTN_PIN = 4
+local BTN_HIGH_PIN = 5
+
+-- local vars
+
 local getState
 local updateState
 
@@ -28,13 +35,11 @@ state.pendingUpdate = nil
 state.failures = 0
 
 -- Setup relay
-local relay_pin = 2
-
-gpio.mode(relay_pin, gpio.OUTPUT)
-gpio.write(relay_pin, gpio.LOW)
+gpio.mode(RELAY_PIN, gpio.OUTPUT)
+gpio.write(RELAY_PIN, gpio.LOW)
 
 -- Setup sensor
-ds18b20.setup(3)
+ds18b20.setup(SENSOR_PIN)
 
 -- Create execution thread
 
@@ -45,28 +50,31 @@ local threadTimer = tmr.create()
 local function updateRelay()
     if state.keepPowerOff then
         print('Relay: off (keepPowerOff)')
-        gpio.write(relay_pin, gpio.LOW)
+        gpio.write(RELAY_PIN, gpio.LOW)
     elseif state.temperature < state.threshold then
         print('Relay: on')
-        gpio.write(relay_pin, gpio.HIGH)
+        gpio.write(RELAY_PIN, gpio.HIGH)
     elseif state.temperature > state.threshold  then
         print('Relay: off')
-        gpio.write(relay_pin, gpio.LOW)
+        gpio.write(RELAY_PIN, gpio.LOW)
     else
         print('Relay: noop')
     end
 end
 
 -- Setup btn
-gpio.mode(4, gpio.INT)
+gpio.mode(BTN_PIN, gpio.INT)
+
+gpio.mode(BTN_HIGH_PIN, gpio.OUTPUT)
+gpio.write(BTN_HIGH_PIN, gpio.HIGH)
 
 local lastBtnPush = tmr.now()
-gpio.trig(4, 'down', function ()
-    local delta = tmr.now() - lastBtnPush
+gpio.trig(BTN_PIN, 'down', function (level, pushTimestamp)
+    local delta = pushTimestamp - lastBtnPush
     if delta < 0 then delta = delta + 2147483647 end -- proposed because of delta rolling over, https://github.com/hackhitchin/esp8266-co-uk/issues/2
     if delta < 2000000 then return end
 
-    lastBtnPush = tmr.now()
+    lastBtnPush = pushTimestamp
 
     state.keepPowerOff = state.keepPowerOff ~= true
     state.pendingUpdate = true
