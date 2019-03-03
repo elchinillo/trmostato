@@ -1,11 +1,11 @@
 -- Setup Constants
 local LOCAL_STATE_FILE = 'state.json'
 local FIREBASE_HOME = 'https://trmostato.firebaseio.com'
-local LONG_TIMEOUT = 60000
-local SHORT_TIMEOUT = 1000
+local LONG_TIMEOUT = 60000 -- 60 secs
+local SHORT_TIMEOUT = 1000 -- 1 sec
 
 local getState
-local syncState
+local updateState
 
 -- Init state
 local state
@@ -24,7 +24,7 @@ end
 print('Inital state: ' .. sjson.encode(state))
 
 state.keepPowerOff = true
-state.inSync = nil
+state.pendingUpdate = nil
 state.failures = 0
 
 -- Setup relay
@@ -36,10 +36,26 @@ gpio.write(relay_pin, gpio.LOW)
 -- Setup sensor
 ds18b20.setup(3)
 
--- Create timers
+-- Create execution thread
 
-local sensorTimer = tmr.create()
-local httpTimer = tmr.create()
+local threadTimer = tmr.create()
+
+-- Update relay
+
+local function updateRelay()
+    if state.keepPowerOff then
+        print('Relay: off (keepPowerOff)')
+        gpio.write(relay_pin, gpio.LOW)
+    elseif state.temperature < state.threshold then
+        print('Relay: on')
+        gpio.write(relay_pin, gpio.HIGH)
+    elseif state.temperature > state.threshold  then
+        print('Relay: off')
+        gpio.write(relay_pin, gpio.LOW)
+    else
+        print('Relay: noop')
+    end
+end
 
 -- Setup btn
 gpio.mode(4, gpio.INT)
@@ -53,14 +69,15 @@ gpio.trig(4, 'down', function ()
     lastBtnPush = tmr.now()
 
     state.keepPowerOff = state.keepPowerOff ~= true
-    state.inSync = false
+    state.pendingUpdate = true
     print('KeepPowerOff: ' .. tostring(state.keepPowerOff))
+    updateRelay()
 end)
 
 -- Callbacks
 
 local function senseTemperature()
-    httpTimer:register(SHORT_TIMEOUT, tmr.ALARM_SINGLE, syncState)
+    threadTimer:register(SHORT_TIMEOUT, tmr.ALARM_SINGLE, updateState)
 
     ds18b20.read(
         function (ind, rom, res, t, t_dec)
@@ -72,26 +89,17 @@ local function senseTemperature()
             end
             print('Temperature: ' .. t .. '.' .. t_dec)
 
-            -- Update relay state
-            if state.keepPowerOff then
-                print('Relay: off (keepPowerOff)')
-                gpio.write(relay_pin, gpio.LOW)
-            elseif state.temperature < state.threshold then
-                print('Relay: on')
-                gpio.write(relay_pin, gpio.HIGH)
-            elseif state.temperature > state.threshold  then
-                print('Relay: off')
-                gpio.write(relay_pin, gpio.LOW)
-            else
-                print('Relay: noop')
-            end
-            httpTimer:start()
+            updateRelay()
+
+            threadTimer:start()
         end,
         {}
     )
 end
 
 getState = function()
+    threadTimer:register(SHORT_TIMEOUT, tmr.ALARM_SINGLE, senseTemperature)
+
     http.get(
         string.format('%s/me.json', FIREBASE_HOME),
         nil,
@@ -103,14 +111,9 @@ getState = function()
                 state.failures = 0
                 state.threshold = snapshot.config.threshold
 
-                if state.inSync == nil or state.inSync then
+                if not state.pendingUpdate then
                     state.keepPowerOff = snapshot.state.keepPowerOff
                 end
-
-                state.inSync = true
-                state.hasBeenOnline = true
-
-                sensorTimer:register(LONG_TIMEOUT, tmr.ALARM_SEMI, senseTemperature)
             else
                 print('Error(' .. code .. '): Failed to get state from cloud')
 
@@ -129,26 +132,22 @@ getState = function()
                     end
 
                     wifi.sta.disconnect(function ()
-                        node.dsleep(60000000) -- 1 min
+                        node.dsleep(60000000) -- 10 min
                     end)
                 end
-
-                sensorTimer:register(SHORT_TIMEOUT, tmr.ALARM_SEMI, senseTemperature)
             end
 
-            sensorTimer:start()
+            threadTimer:start()
         end
     )
 end
 
-syncState = function ()
-    httpTimer:register(SHORT_TIMEOUT, tmr.ALARM_SINGLE, getState)
-
+updateState = function ()
     local stateJson = {
         ['temperature'] = state.temperature
     }
 
-    if state.inSync ~= nil then
+    if state.pendingUpdate then
         stateJson['keepPowerOff'] = state.keepPowerOff
     end
 
@@ -160,16 +159,22 @@ syncState = function ()
         function (code)
             if code == 200 then
                 print('State: In sync')
+
+                state.pendingUpdate = false
+
+                threadTimer:register(LONG_TIMEOUT, tmr.ALARM_SEMI, getState)
             else
                 print('Error(' .. code .. '): Failed to store state on cloud')
+
+                threadTimer:register(SHORT_TIMEOUT, tmr.ALARM_SEMI, getState)
             end
 
-            httpTimer:start()
+            threadTimer:start()
         end
     )
 end
 
 -- Main
 
-print('Read initial temperature')
-senseTemperature()
+print('Get current state from cloud')
+getState()
