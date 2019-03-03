@@ -11,9 +11,10 @@ const i18nMessages = defineMessages({
     }
 });
 
-const OVERRIDE = 'override';
-const HEATING_ON = 'on';
+const COOL = 'cool';
 const HEATING_OFF = 'off';
+const HEATING_ON = 'on';
+const OVERRIDE = 'override';
 
 type PropsType = {
     intl: IntlShape,
@@ -23,15 +24,17 @@ type PropsType = {
 };
 
 function Trmostato({ intl, keepPowerOff, temperature, threshold }: PropsType) {
-    const trmostatoState = keepPowerOff ? OVERRIDE : temperature < threshold ? HEATING_ON : HEATING_OFF;
+    const trmostatoState = keepPowerOff ? OVERRIDE : temperature < threshold ? HEATING_ON : temperature === threshold ? COOL : HEATING_OFF;
 
     const trmostatoFeelsIconClassName = {
+        [`fa-check-circle ${styles.cool}`]: COOL === trmostatoState,
         [`fa-snowflake ${styles.heatingOff}`]: HEATING_OFF === trmostatoState,
         [`fa-fire ${styles.heatingOn}`]: HEATING_ON === trmostatoState,
         [`fa-ban ${styles.override}`]: OVERRIDE === trmostatoState
     };
 
     const trmostatoStateIconClassName = {
+        [`fa-flag-checkered ${styles.cool}`]: COOL === trmostatoState,
         [`fa-angle-down ${styles.heatingOff}`]: HEATING_OFF === trmostatoState,
         [`fa-angle-up ${styles.heatingOn}`]: HEATING_ON === trmostatoState,
         [`fa-angle-down ${styles.override}`]: OVERRIDE === trmostatoState

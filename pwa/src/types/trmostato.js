@@ -1,7 +1,8 @@
 export type TrmostatoType = {
     keepPowerOff: boolean,
     temperature: number,
-    threshold: number
+    threshold: number,
+    version: ?string
 };
 
 // Actions
@@ -24,4 +25,11 @@ export const SET_THRESHOLD: 'SET_THRESHOLD' = 'SET_THRESHOLD';
 export type SetThresholdAction = {
     type: typeof SET_THRESHOLD,
     payload: number
+};
+
+export const SET_VERSION: 'SET_VERSION' = 'SET_VERSION';
+
+export type SetVersionAction = {
+    type: typeof SET_VERSION,
+    payload: string
 };

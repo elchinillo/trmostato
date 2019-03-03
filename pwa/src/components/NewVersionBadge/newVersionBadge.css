@@ -1,0 +1,12 @@
+.container {
+    min-width: 10rem;
+    position: absolute;
+    right: -3rem;
+    text-align: center;
+    top: 2rem;
+    transform: rotate(45deg);
+}
+
+.button {
+    width: 100%;
+}

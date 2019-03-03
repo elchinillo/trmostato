@@ -22,12 +22,20 @@
     font-size: 5vh;
 }
 
-.heatingOn {
-    color: #f36161;
+.cool {
+    color: #76de76;
+}
+
+.cool:not(:first-child) {
+    visibility: hidden;
 }
 
 .heatingOff {
     color: #4242fb;
+}
+
+.heatingOn {
+    color: #f36161;
 }
 
 .override {

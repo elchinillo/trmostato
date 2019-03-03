@@ -1,13 +1,14 @@
-import { SET_KEEP_POWER_OFF, SET_TEMPERATURE, SET_THRESHOLD } from 'trmostato/types/trmostato';
-import type { SetKeepPowerOffAction, SetTemperatureAction, SetThresholdAction, TrmostatoType } from 'trmostato/types/trmostato';
+import { SET_KEEP_POWER_OFF, SET_TEMPERATURE, SET_THRESHOLD, SET_VERSION } from 'trmostato/types/trmostato';
+import type { SetKeepPowerOffAction, SetTemperatureAction, SetThresholdAction, SetVersionAction, TrmostatoType } from 'trmostato/types/trmostato';
 
 const initialState: TrmostatoType = {
     keepPowerOff: false,
     temperature: 0,
-    threshold: 0
+    threshold: 0,
+    version: null
 };
 
-type TrmostatoActions = SetKeepPowerOffAction | SetTemperatureAction | SetThresholdAction;
+type TrmostatoActions = SetKeepPowerOffAction | SetTemperatureAction | SetThresholdAction | SetVersionAction;
 
 function trmostatoReducer (state = initialState, action: TrmostatoActions): TrmostatoType {
     switch (action.type) {
@@ -19,6 +20,9 @@ function trmostatoReducer (state = initialState, action: TrmostatoActions): Trmo
 
         case SET_THRESHOLD:
             return { ...state, threshold: action.payload };
+
+        case SET_VERSION:
+            return { ...state, version: action.payload };
 
         default:
             return state;

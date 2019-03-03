@@ -4,7 +4,7 @@ import { call, put, takeEvery } from 'redux-saga/effects';
 import firebase from 'firebase';
 
 import { setError } from 'trmostato/actions/app';
-import { keepPowerOff, doNotKeepPowerOff, setTemperature, setThreshold } from 'trmostato/actions/trmostato';
+import { keepPowerOff, doNotKeepPowerOff, setTemperature, setThreshold, setVersion } from 'trmostato/actions/trmostato';
 
 const i18nMessages = defineMessages({
     failedToInit: {
@@ -31,9 +31,20 @@ type ThresholdChangeEvent = {
     payload: number
 };
 
-type FirebaseEvent = KeepPowerOffChangeEvent | TemperatureChangeEvent | ThresholdChangeEvent;
+const VERSION_CHANGE_EVENT: 'VERSION' = 'VERSION';
+type VersionChangeEvent = {
+    type: typeof VERSION_CHANGE_EVENT,
+    payload: string
+};
+
+type FirebaseEvent = KeepPowerOffChangeEvent | TemperatureChangeEvent | ThresholdChangeEvent | VersionChangeEvent;
 
 function subscribeToFirebase(emitter) {
+    firebase.database().ref('version').on('value', snapshot => emitter({
+        type: VERSION_CHANGE_EVENT,
+        payload: snapshot.val()
+    }));
+
     firebase.database().ref('me/state/keepPowerOff').on('value', snapshot => emitter({
         type: KEEP_POWER_OFF_CHANGE_EVENT,
         payload: snapshot.val()
@@ -70,6 +81,10 @@ function* mapFirebaseEventToReduxAction(firebaseEvent: FirebaseEvent) {
 
         case THRESHOLD_CHANGE_EVENT:
             yield put(setThreshold(firebaseEvent.payload));
+            break;
+
+        case VERSION_CHANGE_EVENT:
+            yield put(setVersion(firebaseEvent.payload));
             break;
 
         default:
