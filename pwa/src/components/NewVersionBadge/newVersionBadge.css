@@ -1,12 +1,22 @@
 .container {
-    min-width: 10rem;
+    background-color: #d7eaea;
+    display: flex;
+    flex-direction: column-reverse;
+    height: 6rem;
+    width: 12rem;
     position: absolute;
-    right: -3rem;
-    text-align: center;
-    top: 2rem;
+    right: -4rem;
+    top: -1rem;
     transform: rotate(45deg);
 }
 
 .button {
-    width: 100%;
+    background-color: transparent;
+    border: 0;
+    color: #464d5d;
+    flex-basis: 100%;
+    font-weight: 900;
+    font-style: italic;
+    margin: 0;
+    padding: 0;
 }
