@@ -7,7 +7,6 @@ local SHORT_TIMEOUT = 1000 -- 1 sec
 local RELAY_PIN = 2
 local SENSOR_PIN = 3
 local BTN_PIN = 4
-local BTN_HIGH_PIN = 5
 
 -- local vars
 
@@ -64,9 +63,6 @@ end
 
 -- Setup btn
 gpio.mode(BTN_PIN, gpio.INT)
-
-gpio.mode(BTN_HIGH_PIN, gpio.OUTPUT)
-gpio.write(BTN_HIGH_PIN, gpio.HIGH)
 
 local lastBtnPush = tmr.now()
 gpio.trig(BTN_PIN, 'down', function (level, pushTimestamp)
