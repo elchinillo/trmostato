@@ -1,10 +1,11 @@
 import { defineMessages } from 'react-intl';
 import { eventChannel } from 'redux-saga';
-import { call, put, takeEvery } from 'redux-saga/effects';
+import { call, put, select, takeEvery } from 'redux-saga/effects';
 import firebase from 'firebase';
 
 import { setError } from 'trmostato/actions/app';
 import { keepPowerOff, doNotKeepPowerOff, setTemperature, setThreshold, setVersion } from 'trmostato/actions/trmostato';
+import type { StateType } from 'trmostato/types';
 
 const i18nMessages = defineMessages({
     failedToInit: {
@@ -93,6 +94,39 @@ function* mapFirebaseEventToReduxAction(firebaseEvent: FirebaseEvent) {
     }
 }
 
+const WINDOW_CLICK_EVENT: 'WINDOW_CLICK_EVENT' = 'WINDOW_CLICK_EVENT';
+type WindowClickEventType = {
+    type: typeof WINDOW_CLICK_EVENT
+};
+
+type WindowEventType = WindowClickEventType;
+
+function subscribeToWindow(emitter) {
+    window.addEventListener('dblclick', () => {
+        emitter({
+            type: WINDOW_CLICK_EVENT
+        });
+    });
+
+    return () => {
+        console.error('Unsubscribing from Firebase is not supported');
+    };
+}
+
+function* mapWindowEventToReduxAction(windowEvent: WindowEventType) {
+    switch (windowEvent.type) {
+        case WINDOW_CLICK_EVENT:
+            const { trmostato: { keepPowerOff } } = (yield select(): StateType);
+
+            firebase.database().ref('me/state/keepPowerOff').set(!keepPowerOff);
+
+            break;
+        default:
+            console.error(`Got unsupported window event '${windowEvent.type}'`);
+            break;
+    }
+}
+
 function* trmostatoSaga() {
     let firebaseChannel;
 
@@ -106,6 +140,10 @@ function* trmostatoSaga() {
     }
 
     yield takeEvery(firebaseChannel, mapFirebaseEventToReduxAction);
+
+    const windowChannel = yield call(eventChannel, subscribeToWindow);
+
+    yield takeEvery(windowChannel, mapWindowEventToReduxAction);
 }
 
 export default trmostatoSaga;

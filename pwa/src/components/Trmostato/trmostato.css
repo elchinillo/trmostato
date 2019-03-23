@@ -3,6 +3,7 @@
     flex-direction: column;
     height: 100%;
     justify-content: center;
+    user-select: none;
 }
 
 .state {
