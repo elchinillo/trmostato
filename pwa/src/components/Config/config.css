@@ -1,0 +1,12 @@
+.inputGroup {}
+
+.config label {
+    display: inline-block;
+    margin-right: 1rem;
+    text-align: right;
+    width: 10rem;
+}
+
+#keepPowerOff {}
+
+#threshold {}

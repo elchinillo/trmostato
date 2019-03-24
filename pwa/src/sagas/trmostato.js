@@ -1,11 +1,12 @@
 import { defineMessages } from 'react-intl';
 import { eventChannel } from 'redux-saga';
-import { call, put, select, takeEvery } from 'redux-saga/effects';
+import { call, put, takeEvery } from 'redux-saga/effects';
 import firebase from 'firebase';
 
 import { setError } from 'trmostato/actions/app';
-import { keepPowerOff, doNotKeepPowerOff, setTemperature, setThreshold, setVersion } from 'trmostato/actions/trmostato';
-import type { StateType } from 'trmostato/types';
+import { setKeepPowerOff, setTemperature, setThreshold, setVersion } from 'trmostato/actions/trmostato';
+import { SET_KEEP_POWER_OFF, SET_THRESHOLD, type SetKeepPowerOffAction, type SetThresholdAction } from 'trmostato/types/trmostato';
+
 
 const i18nMessages = defineMessages({
     failedToInit: {
@@ -13,6 +14,10 @@ const i18nMessages = defineMessages({
         id: 'firebase.error.init'
     }
 });
+
+const firebaseMetaKey = '@@firebase';
+const injectFirebaseMetadata = action => ({ ...action, meta: { ...action.meta, [firebaseMetaKey]: true } });
+const isFirebaseAction = action => (action.meta && action.meta[firebaseMetaKey]);
 
 const KEEP_POWER_OFF_CHANGE_EVENT: 'KEEP_POWER_OFF_CHANGE_EVENT' = 'KEEP_POWER_OFF_CHANGE_EVENT';
 type KeepPowerOffChangeEvent = {
@@ -69,23 +74,19 @@ function subscribeToFirebase(emitter) {
 function* mapFirebaseEventToReduxAction(firebaseEvent: FirebaseEvent) {
     switch (firebaseEvent.type) {
         case KEEP_POWER_OFF_CHANGE_EVENT:
-            if (firebaseEvent.payload) {
-                yield put(keepPowerOff());
-            } else {
-                yield put(doNotKeepPowerOff());
-            }
+            yield put(injectFirebaseMetadata(setKeepPowerOff(firebaseEvent.payload)));
             break;
 
         case TEMPERATURE_CHANGE_EVENT:
-            yield put(setTemperature(firebaseEvent.payload));
+            yield put(injectFirebaseMetadata(setTemperature(firebaseEvent.payload)));
             break;
 
         case THRESHOLD_CHANGE_EVENT:
-            yield put(setThreshold(firebaseEvent.payload));
+            yield put(injectFirebaseMetadata(setThreshold(firebaseEvent.payload)));
             break;
 
         case VERSION_CHANGE_EVENT:
-            yield put(setVersion(firebaseEvent.payload));
+            yield put(injectFirebaseMetadata(setVersion(firebaseEvent.payload)));
             break;
 
         default:
@@ -94,36 +95,31 @@ function* mapFirebaseEventToReduxAction(firebaseEvent: FirebaseEvent) {
     }
 }
 
-const WINDOW_CLICK_EVENT: 'WINDOW_CLICK_EVENT' = 'WINDOW_CLICK_EVENT';
-type WindowClickEventType = {
-    type: typeof WINDOW_CLICK_EVENT
-};
+type UpdateTrmostatoConfigActions = SetThresholdAction;
+function updateTrmostatoConfig(action: UpdateTrmostatoConfigActions) {
+    // Ignore actions dispatched from this saga
+    if (isFirebaseAction(action)) return;
 
-type WindowEventType = WindowClickEventType;
-
-function subscribeToWindow(emitter) {
-    window.addEventListener('dblclick', () => {
-        emitter({
-            type: WINDOW_CLICK_EVENT
-        });
-    });
-
-    return () => {
-        console.error('Unsubscribing from Firebase is not supported');
-    };
-}
-
-function* mapWindowEventToReduxAction(windowEvent: WindowEventType) {
-    switch (windowEvent.type) {
-        case WINDOW_CLICK_EVENT:
-            const { trmostato: { keepPowerOff } } = (yield select(): StateType);
-
-            firebase.database().ref('me/state/keepPowerOff').set(!keepPowerOff);
-
+    switch (action.type) {
+        case SET_THRESHOLD:
+            firebase.database().ref('me/config/threshold').set(action.payload);
             break;
         default:
-            console.error(`Got unsupported window event '${windowEvent.type}'`);
+            return;
+    }
+}
+
+type UpdateTrmostatoStateActions = SetKeepPowerOffAction;
+function updateTrmostatoState(action: UpdateTrmostatoStateActions) {
+    // Ignore actions dispatched from this saga
+    if (isFirebaseAction(action)) return;
+
+    switch (action.type) {
+        case SET_KEEP_POWER_OFF:
+            firebase.database().ref('me/state/keepPowerOff').set(action.payload);
             break;
+        default:
+            return;
     }
 }
 
@@ -140,10 +136,8 @@ function* trmostatoSaga() {
     }
 
     yield takeEvery(firebaseChannel, mapFirebaseEventToReduxAction);
-
-    const windowChannel = yield call(eventChannel, subscribeToWindow);
-
-    yield takeEvery(windowChannel, mapWindowEventToReduxAction);
+    yield takeEvery(SET_KEEP_POWER_OFF, updateTrmostatoState);
+    yield takeEvery(SET_THRESHOLD, updateTrmostatoConfig);
 }
 
 export default trmostatoSaga;
