@@ -102,8 +102,6 @@ local function senseTemperature()
 end
 
 getState = function()
-    threadTimer:register(SHORT_TIMEOUT, tmr.ALARM_SINGLE, senseTemperature)
-
     http.get(
         string.format('%s/me.json', FIREBASE_HOME),
         nil,
@@ -118,6 +116,8 @@ getState = function()
                 if not state.pendingUpdate then
                     state.keepPowerOff = snapshot.state.keepPowerOff
                 end
+
+                threadTimer:register(SHORT_TIMEOUT, tmr.ALARM_SINGLE, senseTemperature)
             else
                 print('Error(' .. code .. '): Failed to get state from cloud')
 
@@ -139,6 +139,8 @@ getState = function()
                         node.dsleep(60000000) -- 10 min
                     end)
                 end
+
+                threadTimer:register(LONG_TIMEOUT, tmr.ALARM_SINGLE, senseTemperature)
             end
 
             threadTimer:start()
@@ -166,11 +168,11 @@ updateState = function ()
 
                 state.pendingUpdate = false
 
-                threadTimer:register(LONG_TIMEOUT, tmr.ALARM_SEMI, getState)
+                threadTimer:register(SHORT_TIMEOUT, tmr.ALARM_SEMI, getState)
             else
                 print('Error(' .. code .. '): Failed to store state on cloud')
 
-                threadTimer:register(SHORT_TIMEOUT, tmr.ALARM_SEMI, getState)
+                threadTimer:register(LONG_TIMEOUT, tmr.ALARM_SEMI, getState)
             end
 
             threadTimer:start()
