@@ -38,7 +38,7 @@ class Config extends React.PureComponent<PropsType> {
     goBack = () => {
         const { history } = this.props;
 
-        history.push('/');
+        history.replace('/');
     }
 
     onFieldChange = (e: SyntheticInputEvent<HTMLInputElement>) => {

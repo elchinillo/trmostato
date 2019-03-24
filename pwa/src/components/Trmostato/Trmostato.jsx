@@ -36,7 +36,7 @@ class Trmostato extends React.PureComponent<PropsType> {
     goToConfig = () => {
         const { history } = this.props;
 
-        history.push('/config');
+        history.replace('/config');
     }
 
     render() {
