@@ -4,7 +4,9 @@ import { call, put, takeEvery } from 'redux-saga/effects';
 import firebase from 'firebase';
 
 import { setError } from 'trmostato/actions/app';
-import { setOverride, setTemperature, setThreshold } from 'trmostato/actions/trmostato';
+import { setKeepPowerOff, setTemperature, setThreshold, setVersion } from 'trmostato/actions/trmostato';
+import { SET_KEEP_POWER_OFF, SET_THRESHOLD, type SetKeepPowerOffAction, type SetThresholdAction } from 'trmostato/types/trmostato';
+
 
 const i18nMessages = defineMessages({
     failedToInit: {
@@ -13,42 +15,54 @@ const i18nMessages = defineMessages({
     }
 });
 
-type OverrideTag = 'OVERRIDE';
-const OVERRIDE: OverrideTag = 'OVERRIDE';
-type OverrideEvent = {
-    type: OverrideTag,
+const firebaseMetaKey = '@@firebase';
+const injectFirebaseMetadata = action => ({ ...action, meta: { ...action.meta, [firebaseMetaKey]: true } });
+const isFirebaseAction = action => (action.meta && action.meta[firebaseMetaKey]);
+
+const KEEP_POWER_OFF_CHANGE_EVENT: 'KEEP_POWER_OFF_CHANGE_EVENT' = 'KEEP_POWER_OFF_CHANGE_EVENT';
+type KeepPowerOffChangeEvent = {
+    type: typeof KEEP_POWER_OFF_CHANGE_EVENT,
+    payload: boolean
+};
+
+const TEMPERATURE_CHANGE_EVENT: 'TEMPERATURE_CHANGE_EVENT' = 'TEMPERATURE_CHANGE_EVENT';
+type TemperatureChangeEvent = {
+    type: typeof TEMPERATURE_CHANGE_EVENT,
     payload: number
 };
 
-type TemperatureTag = 'TEMPERATURE';
-const TEMPERATURE: TemperatureTag = 'TEMPERATURE';
-type TemperatureEvent = {
-    type: TemperatureTag,
+const THRESHOLD_CHANGE_EVENT: 'THRESHOLD' = 'THRESHOLD';
+type ThresholdChangeEvent = {
+    type: typeof THRESHOLD_CHANGE_EVENT,
     payload: number
 };
 
-type ThresholdTag = 'THRESHOLD';
-const THRESHOLD: ThresholdTag = 'THRESHOLD';
-type ThresholdEvent = {
-    type: ThresholdTag,
-    payload: number
+const VERSION_CHANGE_EVENT: 'VERSION' = 'VERSION';
+type VersionChangeEvent = {
+    type: typeof VERSION_CHANGE_EVENT,
+    payload: string
 };
 
-type FirebaseEvent = OverrideEvent | TemperatureEvent | ThresholdEvent;
+type FirebaseEvent = KeepPowerOffChangeEvent | TemperatureChangeEvent | ThresholdChangeEvent | VersionChangeEvent;
 
 function subscribeToFirebase(emitter) {
-    firebase.database().ref('me/state/override').on('value', snapshot => emitter({
-        type: 'OVERRIDE',
+    firebase.database().ref('version').on('value', snapshot => emitter({
+        type: VERSION_CHANGE_EVENT,
+        payload: snapshot.val()
+    }));
+
+    firebase.database().ref('me/state/keepPowerOff').on('value', snapshot => emitter({
+        type: KEEP_POWER_OFF_CHANGE_EVENT,
         payload: snapshot.val()
     }));
 
     firebase.database().ref('me/state/temperature').on('value', snapshot => emitter({
-        type: 'TEMPERATURE',
+        type: TEMPERATURE_CHANGE_EVENT,
         payload: snapshot.val()
     }));
 
     firebase.database().ref('me/config/threshold').on('value', snapshot => emitter({
-        type: 'THRESHOLD',
+        type: THRESHOLD_CHANGE_EVENT,
         payload: snapshot.val()
     }));
 
@@ -59,21 +73,53 @@ function subscribeToFirebase(emitter) {
 
 function* mapFirebaseEventToReduxAction(firebaseEvent: FirebaseEvent) {
     switch (firebaseEvent.type) {
-        case OVERRIDE:
-            yield put(setOverride(firebaseEvent.payload));
+        case KEEP_POWER_OFF_CHANGE_EVENT:
+            yield put(injectFirebaseMetadata(setKeepPowerOff(firebaseEvent.payload)));
             break;
 
-        case TEMPERATURE:
-            yield put(setTemperature(firebaseEvent.payload));
+        case TEMPERATURE_CHANGE_EVENT:
+            yield put(injectFirebaseMetadata(setTemperature(firebaseEvent.payload)));
             break;
 
-        case THRESHOLD:
-            yield put(setThreshold(firebaseEvent.payload));
+        case THRESHOLD_CHANGE_EVENT:
+            yield put(injectFirebaseMetadata(setThreshold(firebaseEvent.payload)));
+            break;
+
+        case VERSION_CHANGE_EVENT:
+            yield put(injectFirebaseMetadata(setVersion(firebaseEvent.payload)));
             break;
 
         default:
             console.error(`Got unsupported firebase event '${firebaseEvent.type}'`);
             break;
+    }
+}
+
+type UpdateTrmostatoConfigActions = SetThresholdAction;
+function updateTrmostatoConfig(action: UpdateTrmostatoConfigActions) {
+    // Ignore actions dispatched from this saga
+    if (isFirebaseAction(action)) return;
+
+    switch (action.type) {
+        case SET_THRESHOLD:
+            firebase.database().ref('me/config/threshold').set(action.payload);
+            break;
+        default:
+            return;
+    }
+}
+
+type UpdateTrmostatoStateActions = SetKeepPowerOffAction;
+function updateTrmostatoState(action: UpdateTrmostatoStateActions) {
+    // Ignore actions dispatched from this saga
+    if (isFirebaseAction(action)) return;
+
+    switch (action.type) {
+        case SET_KEEP_POWER_OFF:
+            firebase.database().ref('me/state/keepPowerOff').set(action.payload);
+            break;
+        default:
+            return;
     }
 }
 
@@ -90,6 +136,8 @@ function* trmostatoSaga() {
     }
 
     yield takeEvery(firebaseChannel, mapFirebaseEventToReduxAction);
+    yield takeEvery(SET_KEEP_POWER_OFF, updateTrmostatoState);
+    yield takeEvery(SET_THRESHOLD, updateTrmostatoConfig);
 }
 
 export default trmostatoSaga;

@@ -2,7 +2,7 @@ import { connect } from 'react-redux';
 
 import { StateType } from '../../types';
 
-import AppComponent from './App';
+import AppShellComponent from './AppShell';
 
 function mapStateToProps(state: StateType) {
     return {
@@ -10,4 +10,4 @@ function mapStateToProps(state: StateType) {
     };
 }
 
-export default connect(mapStateToProps)(AppComponent);
+export default connect(mapStateToProps)(AppShellComponent);

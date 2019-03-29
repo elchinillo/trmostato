@@ -1,0 +1,24 @@
+.container {
+    display: none;
+}
+
+.container.visible {
+    background-color: #d7eaea;
+    color: #464d5d;
+    display: flex;
+    height: 2rem;
+    line-height: 2rem;
+    width: 100%;
+    position: fixed;
+    z-index:100;
+}
+
+.button {
+    border: 0;
+    flex-basis: 100%;
+    font-weight: 900;
+    font-size: 1rem;
+    font-style: italic;
+    margin: 0;
+    padding: 0;
+}

@@ -1,3 +1,3 @@
-import AppComponent from './ConnectedApp';
+import AppShellComponent from './ConnectedAppShell';
 
-export default AppComponent;
+export default AppShellComponent;

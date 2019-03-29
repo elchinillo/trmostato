@@ -1,0 +1,25 @@
+.config {
+    color: #d7eaea;
+    height: 100%;
+}
+
+.config form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: center;
+    user-select: none;
+}
+
+.inputGroup {}
+
+.config label {
+    display: inline-block;
+    margin-right: 1rem;
+    text-align: right;
+    width: 50%;
+}
+
+#keepPowerOff {}
+
+#threshold {}
