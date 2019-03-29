@@ -106,7 +106,7 @@ getState = function()
         string.format('%s/me.json', FIREBASE_HOME),
         nil,
         function (code, jsonResponse)
-            if code >= 200 and code < 300 then
+            if code == 200 then
                 snapshot = sjson.decode(jsonResponse)
                 print('State: ' .. jsonResponse)
 
@@ -168,11 +168,11 @@ updateState = function ()
 
                 state.pendingUpdate = false
 
-                threadTimer:register(SHORT_TIMEOUT, tmr.ALARM_SEMI, getState)
+                threadTimer:register(SHORT_TIMEOUT, tmr.ALARM_SINGLE, getState)
             else
                 print('Error(' .. code .. '): Failed to store state on cloud')
 
-                threadTimer:register(LONG_TIMEOUT, tmr.ALARM_SEMI, getState)
+                threadTimer:register(LONG_TIMEOUT, tmr.ALARM_SINGLE, getState)
             end
 
             threadTimer:start()
