@@ -62,7 +62,7 @@ local function updateRelay()
 end
 
 -- Setup btn
-gpio.mode(BTN_PIN, gpio.INT)
+gpio.mode(BTN_PIN, gpio.INT, gpio.PULLUP)
 
 local lastBtnPush = tmr.now()
 gpio.trig(BTN_PIN, 'down', function (level, pushTimestamp)
