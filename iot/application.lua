@@ -10,8 +10,10 @@ local BTN_PIN = 4
 
 -- local vars
 
+local btnHandler
 local getState
 local updateState
+local updateRelay
 
 -- Init state
 local state
@@ -44,15 +46,34 @@ ds18b20.setup(SENSOR_PIN)
 
 local threadTimer = tmr.create()
 
+-- Btn handler
+local lastBtnPush = tmr.now()
+btnHandler = function (level, pushTimestamp)
+    local delta = pushTimestamp - lastBtnPush
+    if delta < 0 then delta = delta + 2147483647 end -- proposed because of delta rolling over, https://github.com/hackhitchin/esp8266-co-uk/issues/2
+    if delta < 1000000 then return end
+
+    state.keepPowerOff = state.keepPowerOff ~= true
+    state.pendingUpdate = true
+    print('KeepPowerOff: ' .. tostring(state.keepPowerOff))
+    updateRelay()
+
+    lastBtnPush = pushTimestamp
+end
+
 -- Update relay
 
-local function updateRelay()
+updateRelay = function ()
     if state.keepPowerOff then
         print('Relay: off (keepPowerOff)')
         gpio.write(RELAY_PIN, gpio.LOW)
     elseif state.temperature < state.threshold then
         print('Relay: on')
+        gpio.trig(BTN_PIN, 'none', btnHandler)
+        tmr.delay(1000)
         gpio.write(RELAY_PIN, gpio.HIGH)
+        tmr.delay(5000)
+        gpio.trig(BTN_PIN, 'down', btnHandler)
     elseif state.temperature > state.threshold  then
         print('Relay: off')
         gpio.write(RELAY_PIN, gpio.LOW)
@@ -63,20 +84,7 @@ end
 
 -- Setup btn
 gpio.mode(BTN_PIN, gpio.INT, gpio.PULLUP)
-
-local lastBtnPush = tmr.now()
-gpio.trig(BTN_PIN, 'down', function (level, pushTimestamp)
-    local delta = pushTimestamp - lastBtnPush
-    if delta < 0 then delta = delta + 2147483647 end -- proposed because of delta rolling over, https://github.com/hackhitchin/esp8266-co-uk/issues/2
-    if delta < 2000000 then return end
-
-    lastBtnPush = pushTimestamp
-
-    state.keepPowerOff = state.keepPowerOff ~= true
-    state.pendingUpdate = true
-    print('KeepPowerOff: ' .. tostring(state.keepPowerOff))
-    updateRelay()
-end)
+gpio.trig(BTN_PIN, 'down', btnHandler)
 
 -- Callbacks
 
