@@ -79,8 +79,11 @@ class Config extends React.PureComponent<PropsType> {
                         <label htmlFor={styles.threshold}>
                             {intl.formatMessage(i18nMessages.threshold)}
                         </label>
-                        <input id={styles.threshold} name={THRESHOLD} type="range" min="0" max="30" value={threshold} onChange={this.onFieldChange} />
-                        <span>{threshold}</span>
+                        <select id={styles.threshold} name={THRESHOLD} value={threshold} onChange={this.onFieldChange}>
+                            {Array.apply(null, {length: 30}).map(Number.call, Number).map((_, idx) => (
+                                <option key={idx} value={idx+1}>{idx+1}</option>
+                            ))}
+                        </select>
                     </div>
                 </form>
             </section>
